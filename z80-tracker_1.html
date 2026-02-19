@@ -1,1 +1,577 @@
-<P>HELLO WORLD</P>
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>במה z80 — מעקב מיקומים 2026</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Heebo', sans-serif;
+  background: #f0f2f7;
+  color: #1a1a2e;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+h1 {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #1a2a5e;
+}
+
+h1 span { color: #3a7bd5; }
+
+.legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  align-items: center;
+}
+
+.leg {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #444;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: white;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  user-select: none;
+  transition: transform .1s;
+}
+.leg:hover { transform: scale(1.04); }
+.leg.active { outline: 2px solid #3a7bd5; }
+.leg-dot { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
+
+.controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: white;
+  font-family: 'Heebo', sans-serif;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: #333;
+  transition: all .15s;
+}
+.btn:hover { background: #f0f4ff; border-color: #3a7bd5; color: #3a7bd5; }
+.btn-blue { background: #3a7bd5; color: white; border-color: #3a7bd5; }
+.btn-blue:hover { background: #2c65b8; color: white; }
+.btn-red { background: #fff0f0; color: #c0392b; border-color: #f5c6cb; }
+.btn-red:hover { background: #ffe0e0; }
+
+.info-bar {
+  background: #e8f0fe;
+  border: 1px solid #c5d8f7;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  color: #1a4a9e;
+  margin-bottom: 14px;
+}
+
+.table-wrap {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  max-height: 72vh;
+  overflow-y: auto;
+}
+
+table { border-collapse: collapse; }
+thead { position: sticky; top: 0; z-index: 20; }
+
+th.name-th {
+  background: #1a2a5e;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 16px;
+  min-width: 130px;
+  position: sticky;
+  right: 0;
+  z-index: 30;
+  border-left: 2px solid #3a7bd5;
+}
+
+th.month-th {
+  background: #1a2a5e;
+  color: #90c2ff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+  padding: 8px 4px;
+  border-bottom: 2px solid #3a7bd5;
+  white-space: nowrap;
+}
+
+th.day-th {
+  background: #f8f9fe;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 2px;
+  border-bottom: 1px solid #e0e4f0;
+  min-width: 38px;
+  color: #555;
+}
+
+th.dow-th {
+  background: #f8f9fe;
+  font-size: 0.62rem;
+  text-align: center;
+  padding: 3px 2px 5px;
+  border-bottom: 2px solid #d0d8f0;
+  color: #888;
+}
+
+td.name-td {
+  background: #f0f3ff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 14px;
+  position: sticky;
+  right: 0;
+  z-index: 10;
+  border-left: 2px solid #c0ccee;
+  white-space: nowrap;
+  color: #1a2a5e;
+}
+
+td.data-td {
+  padding: 0;
+  border: 1px solid #eef0f8;
+  height: 40px;
+  min-width: 38px;
+}
+
+.cell {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter .1s, transform .1s;
+  user-select: none;
+}
+
+.cell:hover { filter: brightness(.88); transform: scale(1.06); z-index: 5; position: relative; }
+
+/* Location classes */
+.c-latibet  { background: #bdd7ee; color: #1f3864; }
+.c-ariel    { background: #c6efce; color: #1f4e2b; }
+.c-villa    { background: #fce4d6; color: #833c00; }
+.c-empty    { background: #fafafa; color: transparent; }
+.c-weekend  { background: #ebebeb; color: #bbb; cursor: default; font-size: 0.55rem; }
+.c-weekend:hover { filter: none; transform: none; }
+.c-today    { outline: 2px solid #f39c12 !important; outline-offset: -2px; }
+
+/* Paint mode */
+body.painting .cell:not(.c-weekend) { cursor: crosshair; }
+
+/* Modal */
+.ov { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; display: none; align-items: center; justify-content: center; }
+.ov.open { display: flex; }
+.modal {
+  background: white;
+  border-radius: 16px;
+  padding: 26px;
+  min-width: 300px;
+  max-width: 95vw;
+  box-shadow: 0 8px 40px rgba(0,0,0,.2);
+  direction: rtl;
+}
+.modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 14px; color: #1a2a5e; }
+.modal label { display: block; font-size: 0.78rem; color: #666; margin-bottom: 4px; }
+.modal select, .modal input[type=date] {
+  width: 100%; background: #f8f9fe; border: 1px solid #d0d8f0; color: #222;
+  padding: 9px 12px; border-radius: 8px; font-family: 'Heebo', sans-serif;
+  font-size: 0.88rem; margin-bottom: 12px; outline: none;
+}
+.modal select:focus, .modal input:focus { border-color: #3a7bd5; }
+.range-row { display: flex; gap: 8px; }
+.range-row input { flex: 1; }
+.modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+
+.tip {
+  position: fixed; background: #1a2a5e; color: white;
+  padding: 8px 14px; border-radius: 9px; font-size: 0.78rem;
+  pointer-events: none; z-index: 9999; display: none;
+  direction: rtl; box-shadow: 0 4px 20px rgba(0,0,0,.3); line-height: 1.7;
+}
+
+.add-row {
+  display: flex; gap: 8px; align-items: center;
+  padding: 10px 16px; border-top: 1px solid #eee; background: #f8f9fe;
+}
+.add-row input {
+  background: white; border: 1px solid #ddd; color: #222;
+  padding: 7px 12px; border-radius: 8px; font-family: 'Heebo', sans-serif;
+  font-size: 0.85rem; flex: 1; max-width: 200px; outline: none;
+}
+.add-row input:focus { border-color: #3a7bd5; }
+
+.paint-bar {
+  display: flex; gap: 8px; align-items: center;
+  background: #fffbea; border: 1px solid #f0c040;
+  border-radius: 10px; padding: 8px 14px; margin-bottom: 14px;
+  font-size: 0.82rem; color: #7a5a00; flex-wrap: wrap;
+}
+.paint-bar.hidden { display: none; }
+.paint-swatch {
+  width: 22px; height: 22px; border-radius: 5px; cursor: pointer;
+  border: 2px solid transparent; transition: border-color .1s;
+}
+.paint-swatch.selected, .paint-swatch:hover { border-color: #1a2a5e; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>📍 <span>במה z80</span> — מעקב מיקומים 2026</h1>
+  <div style="font-size:0.8rem;color:#888">לחץ על תא לעריכה • גרור לצביעת טווח</div>
+</div>
+
+<div class="legend" id="legend">
+  <div class="leg" data-loc="latibet"><div class="leg-dot" style="background:#bdd7ee"></div>לאטי בת חפר</div>
+  <div class="leg" data-loc="ariel"  ><div class="leg-dot" style="background:#c6efce"></div>אריאל 7, הרצליה</div>
+  <div class="leg" data-loc="villa"  ><div class="leg-dot" style="background:#fce4d6"></div>וילה הרוש, תל מונד</div>
+  <div class="leg" data-loc="empty"  ><div class="leg-dot" style="background:#fafafa;border:1px solid #ddd"></div>ריק</div>
+</div>
+
+<div class="paint-bar hidden" id="paintBar">
+  🎨 <strong>מצב צביעה:</strong> לחץ/גרור על תאים לצביעה
+  &nbsp;|&nbsp;
+  <div class="paint-swatch selected" data-loc="latibet" style="background:#bdd7ee" title="לאטי"></div>
+  <div class="paint-swatch" data-loc="ariel"   style="background:#c6efce" title="אריאל"></div>
+  <div class="paint-swatch" data-loc="villa"   style="background:#fce4d6" title="וילה"></div>
+  <div class="paint-swatch" data-loc="empty"   style="background:#fafafa;border:1px solid #ccc" title="ריק"></div>
+  &nbsp;
+  <button class="btn btn-red" onclick="exitPaint()">✕ צא ממצב צביעה</button>
+</div>
+
+<div class="controls">
+  <button class="btn btn-blue" onclick="scrollToday()">⬅ היום</button>
+  <button class="btn" onclick="togglePaint()" id="paintBtn">🎨 מצב צביעה מהיר</button>
+  <button class="btn" onclick="exportCSV()">⬇ ייצוא CSV</button>
+</div>
+
+<div class="info-bar" id="infoBar">טוען...</div>
+
+<div class="table-wrap">
+  <div class="table-scroll" id="scroll">
+    <table>
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="add-row">
+    <span style="font-size:.85rem;color:#555;font-weight:600">הוסף ישות:</span>
+    <input type="text" id="newName" placeholder="שם..." onkeydown="if(event.key==='Enter')addEntity()" />
+    <button class="btn btn-blue" onclick="addEntity()">+ הוסף</button>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<!-- Edit Modal -->
+<div class="ov" id="editOv">
+  <div class="modal">
+    <h3 id="editTitle">עדכן מיקום</h3>
+    <label>מיקום</label>
+    <select id="editSel">
+      <option value="latibet">לאטי בת חפר</option>
+      <option value="ariel">אריאל 7, הרצליה</option>
+      <option value="villa">וילה הרוש, תל מונד</option>
+      <option value="empty">ריק</option>
+    </select>
+    <label>החל על טווח תאריכים (אופציונלי)</label>
+    <div class="range-row">
+      <input type="date" id="rfrom" />
+      <input type="date" id="rto" />
+    </div>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeModal()">ביטול</button>
+      <button class="btn btn-blue" onclick="applyEdit()">✓ שמור</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- STATE ----
+const START = new Date(2026,1,1), END = new Date(2026,11,31);
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+const MHE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+const DHE = {0:'א׳',1:'ב׳',2:'ג׳',3:'ד׳',4:'ה׳',5:'ו׳',6:'ש׳'};
+const DOW_JS_TO_HE = {0:6,1:0,2:1,3:2,4:3,5:4,6:5}; // JS Sun=0→Heb=6
+
+const LOC_META = {
+  latibet: { name:'לאטי בת חפר',     short:'לאטי',  bg:'#bdd7ee', fg:'#1f3864' },
+  ariel:   { name:'אריאל 7, הרצליה', short:'אריאל', bg:'#c6efce', fg:'#1f4e2b' },
+  villa:   { name:'וילה הרוש, תל מונד', short:'וילה', bg:'#fce4d6', fg:'#833c00' },
+  empty:   { name:'',                short:'',      bg:'#fafafa', fg:'#ccc' },
+};
+
+function addD(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function diff(a,b){ return Math.round((b-a)/86400000); }
+function dk(d){ return d.toISOString().slice(0,10); }
+function isSame(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+function isWE(d){ const j=d.getDay(); return j===5||j===6; } // Fri Sat
+
+const TOTAL = diff(START,END)+1;
+const dates = Array.from({length:TOTAL},(_,i)=>addD(START,i));
+
+function defaultLocs() {
+  return dates.map(d => {
+    if(d <= new Date(2026,1,21)) return 'latibet';
+    if(d <= new Date(2026,2,1))  return 'ariel';
+    if(d <= new Date(2026,2,8))  return 'villa';
+    return 'empty';
+  });
+}
+
+let entities = [{ id:'z80', name:'במה z80', locs: defaultLocs() }];
+
+// ---- PAINT MODE ----
+let paintMode = false;
+let paintLoc  = 'latibet';
+let painting  = false; // mouse down
+
+function togglePaint(){
+  paintMode = !paintMode;
+  document.getElementById('paintBar').classList.toggle('hidden', !paintMode);
+  document.getElementById('paintBtn').classList.toggle('btn-blue', paintMode);
+  document.body.classList.toggle('painting', paintMode);
+}
+function exitPaint(){ paintMode=false; document.getElementById('paintBar').classList.add('hidden'); document.getElementById('paintBtn').classList.remove('btn-blue'); document.body.classList.remove('painting'); }
+
+document.querySelectorAll('.paint-swatch').forEach(s => {
+  s.addEventListener('click', () => {
+    document.querySelectorAll('.paint-swatch').forEach(x=>x.classList.remove('selected'));
+    s.classList.add('selected');
+    paintLoc = s.dataset.loc;
+  });
+});
+
+document.addEventListener('mouseup', () => { painting = false; });
+
+// Legend click = activate paint for that loc
+document.querySelectorAll('.leg').forEach(l => {
+  l.addEventListener('click', () => {
+    if(!paintMode){ togglePaint(); }
+    paintLoc = l.dataset.loc;
+    document.querySelectorAll('.paint-swatch').forEach(s=>s.classList.toggle('selected', s.dataset.loc===paintLoc));
+    document.querySelectorAll('.leg').forEach(x=>x.classList.remove('active'));
+    l.classList.add('active');
+  });
+});
+
+// ---- RENDER HEADER ----
+function renderHeader(){
+  const thead = document.getElementById('thead');
+  thead.innerHTML = '';
+
+  // Row 1 – month
+  const r1 = document.createElement('tr');
+  const nt1 = document.createElement('th'); nt1.className='name-th'; nt1.rowSpan=3; nt1.textContent='ישות'; r1.appendChild(nt1);
+  let i=0;
+  while(i<dates.length){
+    const m=dates[i].getMonth(); let c=0;
+    while(i+c<dates.length&&dates[i+c].getMonth()===m) c++;
+    const th=document.createElement('th'); th.className='month-th'; th.colSpan=c; th.textContent=MHE[m]; r1.appendChild(th); i+=c;
+  }
+  thead.appendChild(r1);
+
+  // Row 2 – day number
+  const r2=document.createElement('tr');
+  dates.forEach(d=>{
+    const th=document.createElement('th'); th.className='day-th';
+    th.textContent=d.getDate();
+    if(isWE(d)) th.style.color='#cc4444';
+    if(isSame(d,TODAY)){ th.style.color='#e67e00'; th.style.fontWeight='900'; th.style.background='#fff8e0'; }
+    r2.appendChild(th);
+  });
+  thead.appendChild(r2);
+
+  // Row 3 – day name
+  const r3=document.createElement('tr');
+  dates.forEach(d=>{
+    const th=document.createElement('th'); th.className='dow-th';
+    const heIdx = DOW_JS_TO_HE[d.getDay()];
+    th.textContent=DHE[heIdx]||'';
+    if(isWE(d)) th.style.color='#cc4444';
+    r3.appendChild(th);
+  });
+  thead.appendChild(r3);
+}
+
+// ---- RENDER BODY ----
+function renderBody(){
+  const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+  entities.forEach((ent,ei)=>{
+    const tr=document.createElement('tr');
+    const nd=document.createElement('td'); nd.className='name-td'; nd.textContent=ent.name; tr.appendChild(nd);
+
+    dates.forEach((d,di)=>{
+      const td=document.createElement('td'); td.className='data-td';
+      const we=isWE(d), isToday=isSame(d,TODAY);
+      const cell=document.createElement('div');
+      const loc=ent.locs[di]||'empty';
+      const meta=LOC_META[loc]||LOC_META.empty;
+
+      cell.className='cell '+(we?'c-weekend':'');
+      if(!we){
+        cell.style.background = isToday ? '#fff3cd' : meta.bg;
+        cell.style.color = meta.fg;
+        cell.textContent = meta.short;
+        if(isToday) cell.classList.add('c-today');
+      } else {
+        cell.textContent='';
+      }
+
+      if(!we){
+        cell.addEventListener('mouseenter', e=>showTip(e,d,ent,di));
+        cell.addEventListener('mouseleave', hideTip);
+        cell.addEventListener('mousedown', e=>{ e.preventDefault();
+          if(paintMode){ painting=true; applyPaint(ei,di); }
+          else openModal(ei,di,d);
+        });
+        cell.addEventListener('mouseover', ()=>{ if(painting&&paintMode) applyPaint(ei,di); });
+      }
+      td.appendChild(cell); tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  updateInfo();
+}
+
+function applyPaint(ei,di){
+  entities[ei].locs[di]=paintLoc;
+  const rows=document.getElementById('tbody').rows;
+  if(rows[ei]){
+    const td=rows[ei].cells[di+1];
+    if(td){
+      const cell=td.firstChild;
+      const meta=LOC_META[paintLoc]||LOC_META.empty;
+      cell.style.background=meta.bg; cell.style.color=meta.fg; cell.textContent=meta.short;
+    }
+  }
+  updateInfo();
+}
+
+// ---- INFO BAR ----
+function updateInfo(){
+  const ent=entities[0]; if(!ent) return;
+  const counts={};
+  ent.locs.forEach(l=>{ if(l&&l!=='empty') counts[l]=(counts[l]||0)+1; });
+  const parts=Object.entries(counts).map(([k,v])=>`<strong>${LOC_META[k]?.name||k}</strong>: ${v} ימים`);
+  document.getElementById('infoBar').innerHTML='📊 Z80 — '+parts.join(' &nbsp;|&nbsp; ');
+}
+
+// ---- TOOLTIP ----
+const tip=document.getElementById('tip');
+function showTip(e,d,ent,di){
+  const loc=ent.locs[di]||'empty';
+  const locName=LOC_META[loc]?.name||'ריק';
+  const heIdx=DOW_JS_TO_HE[d.getDay()];
+  tip.innerHTML=`<strong>${ent.name}</strong><br>${d.getDate()}/${d.getMonth()+1}/2026 · יום ${DHE[heIdx]||''}<br>📍 ${locName||'ריק'}`;
+  tip.style.display='block'; mv(e);
+}
+function mv(e){tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-12)+'px';}
+document.addEventListener('mousemove',e=>{if(tip.style.display==='block')mv(e);});
+function hideTip(){tip.style.display='none';}
+
+// ---- EDIT MODAL ----
+let ctx=null;
+function openModal(ei,di,d){
+  if(paintMode) return;
+  ctx={ei,di};
+  const ent=entities[ei]; const loc=ent.locs[di]||'empty';
+  const heIdx=DOW_JS_TO_HE[d.getDay()];
+  document.getElementById('editTitle').textContent=`${ent.name} — ${d.getDate()}/${d.getMonth()+1}/2026 (יום ${DHE[heIdx]||''})`;
+  document.getElementById('editSel').value=loc;
+  const iso=dk(d);
+  document.getElementById('rfrom').value=iso;
+  document.getElementById('rto').value=iso;
+  document.getElementById('editOv').classList.add('open');
+}
+function closeModal(){ document.getElementById('editOv').classList.remove('open'); }
+function applyEdit(){
+  if(!ctx) return;
+  const loc=document.getElementById('editSel').value;
+  const from=new Date(document.getElementById('rfrom').value);
+  const to=new Date(document.getElementById('rto').value);
+  from.setHours(0,0,0,0); to.setHours(23,59,59,999);
+  const ent=entities[ctx.ei];
+  dates.forEach((d,di)=>{ if(d>=from&&d<=to) ent.locs[di]=loc; });
+  closeModal(); renderBody();
+}
+document.getElementById('editOv').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
+
+// ---- ADD ENTITY ----
+function addEntity(){
+  const inp=document.getElementById('newName');
+  const name=inp.value.trim(); if(!name) return;
+  entities.push({id:Date.now()+'',name,locs:Array(TOTAL).fill('empty')});
+  inp.value=''; renderHeader(); renderBody();
+}
+
+// ---- SCROLL TO TODAY ----
+function scrollToday(){
+  const scr=document.getElementById('scroll');
+  const idx=dates.findIndex(d=>isSame(d,TODAY));
+  if(idx<0) return;
+  const target=130+idx*38-scr.clientWidth/2;
+  scr.scrollTo({left:Math.max(0,target),behavior:'smooth'});
+}
+
+// ---- EXPORT CSV ----
+function exportCSV(){
+  const hdr=['ישות',...dates.map(d=>`${d.getDate()}/${d.getMonth()+1}`)];
+  const rows=entities.map(ent=>[ent.name,...ent.locs.map(l=>LOC_META[l]?.name||'')]);
+  const csv=[hdr,...rows].map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='z80-tracker.csv'; a.click();
+}
+
+// ---- INIT ----
+renderHeader(); renderBody();
+setTimeout(scrollToday, 400);
+</script>
+</body>
+</html>
