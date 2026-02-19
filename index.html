@@ -287,6 +287,8 @@ body.painting .cell:not(.c-weekend) { cursor: crosshair; }
   <button class="btn btn-blue" onclick="scrollToday()">⬅ היום</button>
   <button class="btn" onclick="togglePaint()" id="paintBtn">🎨 מצב צביעה מהיר</button>
   <button class="btn" onclick="exportCSV()">⬇ ייצוא CSV</button>
+  <button class="btn btn-red" onclick="resetData()">🗑 אפס נתונים</button>
+  <span id="saveStatus" style="font-size:0.8rem;font-weight:600;transition:color .3s;min-width:80px;"></span>
 </div>
 
 <div class="info-bar" id="infoBar">טוען...</div>
@@ -331,6 +333,67 @@ body.painting .cell:not(.c-weekend) { cursor: crosshair; }
 </div>
 
 <script>
+// ---- FIREBASE ----
+const FB_URL = 'https://z80-tracker-default-rtdb.firebaseio.com/data.json';
+
+let isSaving = false;
+let pendingSave = false;
+
+async function saveToFirebase() {
+  if (isSaving) { pendingSave = true; return; }
+  isSaving = true;
+  try {
+    await fetch(FB_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entities)
+    });
+  } catch(e) {
+    showSaveStatus('❌ שגיאה בשמירה', '#c0392b');
+  } finally {
+    isSaving = false;
+    if (pendingSave) { pendingSave = false; saveToFirebase(); }
+    else showSaveStatus('✓ נשמר', '#27ae60');
+  }
+}
+
+async function loadFromFirebase() {
+  showSaveStatus('⏳ טוען...', '#3a7bd5');
+  try {
+    const res = await fetch(FB_URL);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length) {
+      entities = data;
+    }
+  } catch(e) {
+    showSaveStatus('❌ שגיאה בטעינה', '#c0392b');
+    return;
+  }
+  renderHeader(); renderBody();
+  setTimeout(scrollToday, 400);
+  showSaveStatus('✓ טעון', '#27ae60');
+}
+
+function saveData() {
+  saveToFirebase();
+}
+
+function showSaveStatus(msg, color) {
+  let el = document.getElementById('saveStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+function resetData(){
+  if(!confirm('למחוק את כל השינויים ולחזור לברירת המחדל?')) return;
+  entities = [{ id:'z80', name:'במה z80', locs: defaultLocs() }];
+  renderHeader(); renderBody();
+  saveData();
+}
+
 // ---- STATE ----
 const START = new Date(2026,1,1), END = new Date(2026,11,31);
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
@@ -491,6 +554,7 @@ function applyPaint(ei,di){
     }
   }
   updateInfo();
+  saveData();
 }
 
 // ---- INFO BAR ----
@@ -538,7 +602,7 @@ function applyEdit(){
   from.setHours(0,0,0,0); to.setHours(23,59,59,999);
   const ent=entities[ctx.ei];
   dates.forEach((d,di)=>{ if(d>=from&&d<=to) ent.locs[di]=loc; });
-  closeModal(); renderBody();
+  closeModal(); renderBody(); saveData();
 }
 document.getElementById('editOv').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
 
@@ -547,7 +611,7 @@ function addEntity(){
   const inp=document.getElementById('newName');
   const name=inp.value.trim(); if(!name) return;
   entities.push({id:Date.now()+'',name,locs:Array(TOTAL).fill('empty')});
-  inp.value=''; renderHeader(); renderBody();
+  inp.value=''; renderHeader(); renderBody(); saveData();
 }
 
 // ---- SCROLL TO TODAY ----
@@ -570,8 +634,7 @@ function exportCSV(){
 }
 
 // ---- INIT ----
-renderHeader(); renderBody();
-setTimeout(scrollToday, 400);
+loadFromFirebase();
 </script>
 </body>
 </html>
