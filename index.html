@@ -312,7 +312,10 @@ body.painting .cell:not(.c-weekend) { cursor: crosshair; }
 <!-- Edit Modal -->
 <div class="ov" id="editOv">
   <div class="modal">
-    <h3 id="editTitle">עדכן מיקום</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <h3 id="editTitle" style="margin-bottom:0">עדכן מיקום</h3>
+      <button class="btn btn-red" onclick="deleteCell()" title="מחק תא זה" style="padding:5px 10px;font-size:1rem;border-radius:8px;">🗑</button>
+    </div>
     <label>מיקום</label>
     <select id="editSel">
       <option value="latibet">לאטי בת חפר</option>
@@ -507,7 +510,9 @@ function renderBody(){
   const tbody=document.getElementById('tbody'); tbody.innerHTML='';
   entities.forEach((ent,ei)=>{
     const tr=document.createElement('tr');
-    const nd=document.createElement('td'); nd.className='name-td'; nd.textContent=ent.name; tr.appendChild(nd);
+    const nd=document.createElement('td'); nd.className='name-td';
+    nd.innerHTML = `<span>${ent.name}</span><button onclick="deleteEntity(${ei})" title="מחק ישות" style="margin-right:8px;background:none;border:none;cursor:pointer;color:#c0392b;font-size:0.9rem;padding:0;opacity:0.5;transition:opacity .15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">✕</button>`;
+    tr.appendChild(nd);
 
     dates.forEach((d,di)=>{
       const td=document.createElement('td'); td.className='data-td';
@@ -594,17 +599,34 @@ function openModal(ei,di,d){
   document.getElementById('editOv').classList.add('open');
 }
 function closeModal(){ document.getElementById('editOv').classList.remove('open'); }
+
+function deleteCell(){
+  if(!ctx) return;
+  entities[ctx.ei].locs[ctx.di]='empty';
+  closeModal(); renderBody(); saveData();
+}
+
 function applyEdit(){
   if(!ctx) return;
   const loc=document.getElementById('editSel').value;
-  const from=new Date(document.getElementById('rfrom').value);
-  const to=new Date(document.getElementById('rto').value);
+  // Fix: parse date as local, not UTC
+  const parseLocal = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+  const from=parseLocal(document.getElementById('rfrom').value);
+  const to=parseLocal(document.getElementById('rto').value);
   from.setHours(0,0,0,0); to.setHours(23,59,59,999);
   const ent=entities[ctx.ei];
   dates.forEach((d,di)=>{ if(d>=from&&d<=to) ent.locs[di]=loc; });
   closeModal(); renderBody(); saveData();
 }
 document.getElementById('editOv').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
+
+// ---- DELETE ENTITY ----
+function deleteEntity(ei){
+  const name = entities[ei]?.name || 'ישות זו';
+  if(!confirm(`למחוק את "${name}"?\nכל הנתונים שלה יאבדו לצמיתות.`)) return;
+  entities.splice(ei,1);
+  renderHeader(); renderBody(); saveData();
+}
 
 // ---- ADD ENTITY ----
 function addEntity(){
